@@ -44,27 +44,61 @@ APP_ENV = os.environ.get(
 IS_PRODUCTION = APP_ENV in {"production", "prod"}
 
 # --- Flask / Database -------------------------------------------------
-SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(BASE_DIR, 'tariq.db')}"
+def _normalize_database_url(raw_url: str | None) -> str | None:
+    """Return a SQLAlchemy-compatible database URL."""
+    if not raw_url:
+        return None
+
+    value = raw_url.strip()
+    if value.startswith("postgres://"):
+        return "postgresql://" + value[len("postgres://"):]
+    return value
+
+
+DATABASE_URL = _normalize_database_url(os.environ.get("DATABASE_URL"))
+SQLITE_DATABASE_PATH = os.environ.get(
+    "SQLITE_DATABASE_PATH",
+    os.path.join(BASE_DIR, "tariq.db"),
+)
+SQLALCHEMY_DATABASE_URI = (
+    DATABASE_URL
+    or f"sqlite:///{SQLITE_DATABASE_PATH}"
+)
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-AUTO_CREATE_DATABASE = _env_bool("AUTO_CREATE_DATABASE", True)
+AUTO_CREATE_DATABASE = _env_bool("AUTO_CREATE_DATABASE", not IS_PRODUCTION)
+ALLOW_SQLITE_IN_PRODUCTION = _env_bool("ALLOW_SQLITE_IN_PRODUCTION", False)
 
 # --- File uploads -------------------------------------------------------
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
-ANNOTATED_FOLDER = os.path.join(UPLOAD_FOLDER, "annotated")
+UPLOAD_FOLDER = os.environ.get(
+    "UPLOAD_FOLDER",
+    os.path.join(BASE_DIR, "static", "uploads"),
+)
+ANNOTATED_FOLDER = os.environ.get(
+    "ANNOTATED_FOLDER",
+    os.path.join(UPLOAD_FOLDER, "annotated"),
+)
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+MAX_CONTENT_LENGTH = _env_int("MAX_CONTENT_LENGTH", 5 * 1024 * 1024)
 MAX_IMAGE_PIXELS = _env_int("MAX_IMAGE_PIXELS", 24_000_000)
+PERSISTENT_UPLOADS_CONFIRMED = _env_bool(
+    "PERSISTENT_UPLOADS_CONFIRMED",
+    not IS_PRODUCTION,
+)
 
 # --- Detection API ------------------------------------------------------
-DETECTION_MODEL_PATH = os.environ.get(
-    "DETECTION_MODEL_PATH",
-    os.path.join(BASE_DIR, "models", "road_damage_v3.pt"),
+MODEL_PATH = os.environ.get(
+    "MODEL_PATH",
+    os.environ.get(
+        "DETECTION_MODEL_PATH",
+        os.path.join(BASE_DIR, "models", "road_damage_v3.pt"),
+    ),
 )
+DETECTION_MODEL_PATH = MODEL_PATH
 DETECTION_PRELOAD_MODEL = _env_bool("DETECTION_PRELOAD_MODEL", IS_PRODUCTION)
 DETECTION_API_URL = os.environ.get(
     "DETECTION_API_URL",
-    "http://127.0.0.1:5000/api/detect",
+    "internal",
 )
 DETECTION_API_TIMEOUT = _env_float("DETECTION_API_TIMEOUT", 15.0)
 DETECTION_ESTIMATED_WAIT_SECONDS = _env_int(
@@ -106,6 +140,10 @@ CSRF_ENABLED = _env_bool("CSRF_ENABLED", True)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
+PREFERRED_URL_SCHEME = os.environ.get(
+    "PREFERRED_URL_SCHEME",
+    "https" if IS_PRODUCTION else "http",
+)
 PERMANENT_SESSION_LIFETIME = timedelta(
     hours=_env_int("SESSION_LIFETIME_HOURS", 2)
 )
@@ -137,6 +175,12 @@ DETECTION_RATE_WINDOW_SECONDS = _env_int(
 )
 SEARCH_RATE_LIMIT = _env_int("SEARCH_RATE_LIMIT", 120)
 SEARCH_RATE_WINDOW_SECONDS = _env_int("SEARCH_RATE_WINDOW_SECONDS", 60)
+TRUST_PROXY_HEADERS = _env_bool("TRUST_PROXY_HEADERS", IS_PRODUCTION)
+PROXYFIX_X_FOR = _env_int("PROXYFIX_X_FOR", 1)
+PROXYFIX_X_PROTO = _env_int("PROXYFIX_X_PROTO", 1)
+PROXYFIX_X_HOST = _env_int("PROXYFIX_X_HOST", 1)
+PROXYFIX_X_PORT = _env_int("PROXYFIX_X_PORT", 1)
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 # --- Static files / compression -----------------------------------------
 STATIC_CACHE_SECONDS = _env_int("STATIC_CACHE_SECONDS", 86_400)
@@ -168,3 +212,39 @@ DETECTION_ALLOWED_ROOTS = [
     os.path.join(BASE_DIR, "static", "uploads"),
     os.path.join(BASE_DIR, "test_images"),
 ]
+
+
+class BaseConfig:
+    """Shared configuration marker for deployment documentation/tests."""
+
+    APP_ENV = APP_ENV
+    TESTING = False
+    DEBUG = False
+
+
+class DevelopmentConfig(BaseConfig):
+    """Local developer defaults."""
+
+    APP_ENV = "development"
+    AUTO_CREATE_DATABASE = True
+
+
+class TestingConfig(BaseConfig):
+    """Isolated test defaults."""
+
+    APP_ENV = "testing"
+    TESTING = True
+    AUTO_CREATE_DATABASE = False
+    WTF_CSRF_ENABLED = False
+
+
+class ProductionConfig(BaseConfig):
+    """Production mode must use explicit secrets and durable services."""
+
+    APP_ENV = "production"
+    DEBUG = False
+    AUTO_CREATE_DATABASE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    REQUIRE_PRODUCTION_SECRETS = True

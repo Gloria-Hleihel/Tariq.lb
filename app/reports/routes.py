@@ -544,6 +544,11 @@ def _create_report_submission():
     try:
         db.session.add(report)
         db.session.commit()
+        current_app.logger.info(
+            "Created report %s from %s location.",
+            report.id,
+            location_source,
+        )
 
     except Exception as exc:
         db.session.rollback()
@@ -712,6 +717,11 @@ def submit_feedback():
     try:
         db.session.add(feedback)
         db.session.commit()
+        current_app.logger.info(
+            "Stored feedback message %s for report %s.",
+            feedback.id,
+            report_id or "general",
+        )
     except Exception:
         db.session.rollback()
         current_app.logger.exception("Failed to save feedback message")
@@ -1062,6 +1072,7 @@ def api_report_detail(report_id):
     "/reports/<int:report_id>/retry-detection",
     methods=["POST"],
 )
+@require_csrf
 def retry_detection(report_id):
     """Retry a pending detection."""
     report = _get_report_or_404(report_id)

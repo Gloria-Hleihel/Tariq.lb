@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: tariq-lb
+    runtime: python
+    region: frankfurt
+    plan: standard
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "wsgi:application" --config gunicorn.conf.py
+    healthCheckPath: /healthz
+    disk:
+      name: tariq-lb-uploads
+      mountPath: /opt/render/project/src/static/uploads
+      sizeGB: 5
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: APP_ENV
+        value: production
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tariq-lb-db
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: MODEL_PATH
+        value: models/road_damage_v3.pt
+      - key: DETECTION_API_URL
+        value: internal
+      - key: DETECTION_PRELOAD_MODEL
+        value: "1"
+      - key: PERSISTENT_UPLOADS_CONFIRMED
+        value: "true"
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: PREFERRED_URL_SCHEME
+        value: https
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+databases:
+  - name: tariq-lb-db
+    plan: basic-256mb
+    databaseName: tariq_lb
+    user: tariq_lb

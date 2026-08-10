@@ -115,6 +115,20 @@ Run all tests:
 
     python -m pytest tests
 
+## Production Deployment
+
+Production should run through a WSGI server, not `python run.py`.
+
+Recommended startup command:
+
+    gunicorn "wsgi:application" --config gunicorn.conf.py
+
+Production deployment, required environment variables, Render setup,
+PostgreSQL, persistent uploads, backups, monitoring, and DNS instructions are
+documented in:
+
+    docs/deployment.md
+
 ## Database
 
 The SQLite database includes:
