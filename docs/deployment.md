@@ -83,6 +83,7 @@ When deploying with the included `render.yaml`, Render automatically:
 - generates `SECRET_KEY`
 - sets `ADMIN_USERNAME=tariq.lb@admin2026`
 - uses free Render web and Postgres plans
+- places the web service and database in the same Render region
 - sets `ALLOW_EPHEMERAL_UPLOADS=true`
 - sets `AUTO_CREATE_DATABASE=1` so the demo database starts without manual migration commands
 

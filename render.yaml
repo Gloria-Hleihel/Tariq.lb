@@ -2,7 +2,7 @@ services:
   - type: web
     name: tariq-lb
     runtime: python
-    region: frankfurt
+    region: oregon
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn "wsgi:application" --config gunicorn.conf.py
@@ -48,5 +48,6 @@ services:
 databases:
   - name: tariq-lb-db
     plan: free
+    region: oregon
     databaseName: tariq_lb
     user: tariq_lb
