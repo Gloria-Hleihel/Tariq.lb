@@ -256,8 +256,13 @@ def _validate_production_config(app: Flask) -> None:
     ):
         problems.append("set DATABASE_URL for PostgreSQL production storage")
 
-    if not app.config.get("PERSISTENT_UPLOADS_CONFIRMED", False):
-        problems.append("confirm persistent upload storage")
+    if (
+        not app.config.get("PERSISTENT_UPLOADS_CONFIRMED", False)
+        and not app.config.get("ALLOW_EPHEMERAL_UPLOADS", False)
+    ):
+        problems.append(
+            "confirm persistent upload storage or explicitly allow ephemeral demo uploads"
+        )
 
     if not app.config.get("SESSION_COOKIE_SECURE", False):
         problems.append("enable SESSION_COOKIE_SECURE for HTTPS")

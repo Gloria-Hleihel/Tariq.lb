@@ -85,6 +85,7 @@ PERSISTENT_UPLOADS_CONFIRMED = _env_bool(
     "PERSISTENT_UPLOADS_CONFIRMED",
     not IS_PRODUCTION,
 )
+ALLOW_EPHEMERAL_UPLOADS = _env_bool("ALLOW_EPHEMERAL_UPLOADS", False)
 
 # --- Detection API ------------------------------------------------------
 MODEL_PATH = os.environ.get(

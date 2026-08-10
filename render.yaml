@@ -3,14 +3,10 @@ services:
     name: tariq-lb
     runtime: python
     region: frankfurt
-    plan: standard
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn "wsgi:application" --config gunicorn.conf.py
     healthCheckPath: /healthz
-    disk:
-      name: tariq-lb-uploads
-      mountPath: /opt/render/project/src/static/uploads
-      sizeGB: 5
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
@@ -18,6 +14,8 @@ services:
         value: production
       - key: FLASK_ENV
         value: production
+      - key: AUTO_CREATE_DATABASE
+        value: "1"
       - key: DATABASE_URL
         fromDatabase:
           name: tariq-lb-db
@@ -33,8 +31,10 @@ services:
       - key: DETECTION_API_URL
         value: internal
       - key: DETECTION_PRELOAD_MODEL
-        value: "1"
+        value: "0"
       - key: PERSISTENT_UPLOADS_CONFIRMED
+        value: "false"
+      - key: ALLOW_EPHEMERAL_UPLOADS
         value: "true"
       - key: SESSION_COOKIE_SECURE
         value: "1"
@@ -43,10 +43,10 @@ services:
       - key: PREFERRED_URL_SCHEME
         value: https
       - key: WEB_CONCURRENCY
-        value: "2"
+        value: "1"
 
 databases:
   - name: tariq-lb-db
-    plan: basic-256mb
+    plan: free
     databaseName: tariq_lb
     user: tariq_lb

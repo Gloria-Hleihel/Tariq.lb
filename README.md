@@ -106,6 +106,7 @@ Useful production settings:
 | `ADMIN_PASSWORD` | Plain password fallback for local/demo use |
 | `DETECTION_MODEL_PATH` | Optional custom YOLO weights path |
 | `DETECTION_PRELOAD_MODEL=1` | Warm the YOLO model when Flask starts |
+| `ALLOW_EPHEMERAL_UPLOADS` | Allows demo deploys without durable upload storage |
 | `PRELOAD_LOCALITY_SEARCH=0` | Disable startup preloading for locality search debugging |
 | `RATE_LIMIT_ENABLED` | Keeps abuse protection enabled by default |
 
