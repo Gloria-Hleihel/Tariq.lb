@@ -73,6 +73,15 @@ Generate an admin password hash locally:
 python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('replace-this-password'))"
 ```
 
+When deploying with the included `render.yaml`, Render automatically:
+
+- creates and injects `DATABASE_URL`
+- generates `SECRET_KEY`
+- sets `ADMIN_USERNAME=tariq.lb@admin2026`
+- sets `PERSISTENT_UPLOADS_CONFIRMED=true`
+
+You only need to paste `ADMIN_PASSWORD_HASH` during the first Blueprint deploy.
+
 ## Database
 
 Local development may continue using SQLite.
@@ -128,9 +137,7 @@ for production hosting.
    - one web service
    - one PostgreSQL database
    - one persistent disk
-4. Add secret values for:
-   - `SECRET_KEY`
-   - `ADMIN_USERNAME`
+4. Add the secret value for:
    - `ADMIN_PASSWORD_HASH`
 5. Deploy.
 6. Run database migrations.

@@ -89,9 +89,9 @@ Default credentials:
     Username: admin
     Password: changeme
 
-For production or public deployment, do not use the defaults. Set a strong
-`SECRET_KEY` and either `ADMIN_PASSWORD_HASH` or a non-default
-`ADMIN_PASSWORD`.
+For production or public deployment, do not use the defaults. The Render
+Blueprint generates `SECRET_KEY`, sets the production admin username, and
+prompts you for `ADMIN_PASSWORD_HASH`.
 
 ## Environment Variables
 
@@ -100,7 +100,7 @@ Useful production settings:
 | Variable | Purpose |
 |---|---|
 | `APP_ENV=production` | Enables production safety checks |
-| `SECRET_KEY` | Required strong Flask session secret |
+| `SECRET_KEY` | Required strong Flask session secret; generated automatically by `render.yaml` on Render |
 | `ADMIN_USERNAME` | Admin login username |
 | `ADMIN_PASSWORD_HASH` | Preferred hashed admin password |
 | `ADMIN_PASSWORD` | Plain password fallback for local/demo use |
