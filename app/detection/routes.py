@@ -1,4 +1,5 @@
 from importlib import import_module
+import sys
 
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,6 +18,87 @@ detection_bp = Blueprint("detection", __name__)
 def load_detector():
     """Import the YOLO runtime only when detection is actually requested."""
     return import_module("app.detection.detector")
+
+
+def detect_damage(image_path: str) -> dict:
+    """Run detection through a lazy wrapper that tests can monkeypatch."""
+    return load_detector().detect_damage(image_path)
+
+
+def detection_exception_response(error: Exception):
+    """Map lazy detection exceptions to stable API responses."""
+    detector = sys.modules.get("app.detection.detector")
+
+    if detector is None:
+        current_app.logger.exception("Could not import detection runtime.")
+        return error_response(
+            "The detection model could not be initialized.",
+            503,
+            "MODEL_LOAD_FAILED",
+        )
+
+    if isinstance(error, detector.InvalidImagePathError):
+        return error_response(
+            "The supplied image path is invalid.",
+            400,
+            "INVALID_IMAGE_PATH",
+        )
+
+    if isinstance(error, detector.ImageNotFoundError):
+        return error_response(
+            "The requested image could not be found.",
+            404,
+            "IMAGE_NOT_FOUND",
+        )
+
+    if isinstance(error, detector.UnsupportedImageTypeError):
+        return error_response(
+            "Only JPG, JPEG, and PNG images are supported.",
+            415,
+            "UNSUPPORTED_IMAGE_TYPE",
+        )
+
+    if isinstance(error, detector.InvalidImageError):
+        return error_response(
+            "The supplied file is not a valid or readable image.",
+            422,
+            "INVALID_IMAGE",
+        )
+
+    if isinstance(error, detector.ModelNotFoundError):
+        return error_response(
+            "The detection model is currently unavailable.",
+            503,
+            "MODEL_NOT_FOUND",
+        )
+
+    if isinstance(error, detector.ModelLoadError):
+        return error_response(
+            "The detection model could not be initialized.",
+            503,
+            "MODEL_LOAD_FAILED",
+        )
+
+    if isinstance(error, detector.InferenceError):
+        return error_response(
+            "The image could not be analyzed.",
+            500,
+            "INFERENCE_FAILED",
+        )
+
+    if isinstance(error, detector.DetectionError):
+        return error_response(
+            "Detection could not be completed.",
+            500,
+            "DETECTION_FAILED",
+        )
+
+    current_app.logger.exception("Unexpected detection API error.")
+    return error_response(
+        "An unexpected server error occurred.",
+        500,
+        "INTERNAL_SERVER_ERROR",
+    )
 
 
 def error_response(
@@ -129,80 +211,10 @@ def detect_api():
         return validation_error
 
     try:
-        detector = load_detector()
-    except Exception:
-        current_app.logger.exception("Could not import detection runtime.")
-        return error_response(
-            "The detection model could not be initialized.",
-            503,
-            "MODEL_LOAD_FAILED",
-        )
+        detection_result = detect_damage(image_path)
 
-    try:
-        detection_result = detector.detect_damage(image_path)
-
-    except detector.InvalidImagePathError:
-        return error_response(
-            "The supplied image path is invalid.",
-            400,
-            "INVALID_IMAGE_PATH",
-        )
-
-    except detector.ImageNotFoundError:
-        return error_response(
-            "The requested image could not be found.",
-            404,
-            "IMAGE_NOT_FOUND",
-        )
-
-    except detector.UnsupportedImageTypeError:
-        return error_response(
-            "Only JPG, JPEG, and PNG images are supported.",
-            415,
-            "UNSUPPORTED_IMAGE_TYPE",
-        )
-
-    except detector.InvalidImageError:
-        return error_response(
-            "The supplied file is not a valid or readable image.",
-            422,
-            "INVALID_IMAGE",
-        )
-
-    except detector.ModelNotFoundError:
-        return error_response(
-            "The detection model is currently unavailable.",
-            503,
-            "MODEL_NOT_FOUND",
-        )
-
-    except detector.ModelLoadError:
-        return error_response(
-            "The detection model could not be initialized.",
-            503,
-            "MODEL_LOAD_FAILED",
-        )
-
-    except detector.InferenceError:
-        return error_response(
-            "The image could not be analyzed.",
-            500,
-            "INFERENCE_FAILED",
-        )
-
-    except detector.DetectionError:
-        return error_response(
-            "Detection could not be completed.",
-            500,
-            "DETECTION_FAILED",
-        )
-
-    except Exception:
-        return error_response(
-            "An unexpected server error occurred.",
-            500,
-            "INTERNAL_SERVER_ERROR",
-        )
+    except Exception as error:
+        return detection_exception_response(error)
 
     response = {
         "success": True,
