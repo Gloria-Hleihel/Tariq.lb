@@ -29,7 +29,7 @@ services:
       - key: MODEL_PATH
         value: models/road_damage_v3.pt
       - key: DETECTION_API_URL
-        value: internal
+        value: disabled
       - key: DETECTION_PRELOAD_MODEL
         value: "0"
       - key: PERSISTENT_UPLOADS_CONFIRMED

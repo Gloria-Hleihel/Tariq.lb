@@ -86,8 +86,13 @@ When deploying with the included `render.yaml`, Render automatically:
 - places the web service and database in the same Render region
 - sets `ALLOW_EPHEMERAL_UPLOADS=true`
 - sets `AUTO_CREATE_DATABASE=1` so the demo database starts without manual migration commands
+- sets `DETECTION_API_URL=disabled` so report submission cannot crash the
+  free instance by loading YOLO/PyTorch
 
 You only need to paste `ADMIN_PASSWORD_HASH` during the first Blueprint deploy.
+
+For a launch where AI detection runs online, upgrade the web service memory
+and set `DETECTION_API_URL=internal`.
 
 ## Database
 

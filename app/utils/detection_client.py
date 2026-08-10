@@ -225,6 +225,22 @@ def trigger_detection(
         )
     )
 
+    if str(api_url or "").strip().lower() in {
+        "disabled",
+        "off",
+        "none",
+        "manual",
+        "manual-review",
+    }:
+        return _pending(
+            "AI detection is disabled for this hosting environment.",
+            (
+                "Your report was saved. AI detection is disabled on the "
+                "free demo server because the model needs more memory. "
+                "An administrator can review the report manually."
+            ),
+        )
+
     if not os.path.isfile(image_path):
         return _pending(
             "Saved upload is missing from disk.",
