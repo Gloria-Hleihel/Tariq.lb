@@ -1,9 +1,5 @@
 import sys
-import os
 from pathlib import Path
-
-# Match the production app detector behavior for trusted local model assets.
-os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
 
 from ultralytics import YOLO
 

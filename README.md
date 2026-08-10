@@ -89,9 +89,9 @@ Default credentials:
     Username: admin
     Password: changeme
 
-For production or public deployment, do not use the defaults. The Render
-Blueprint generates `SECRET_KEY`, sets the production admin username, and
-prompts you for `ADMIN_PASSWORD_HASH`.
+For production or public deployment, do not use the defaults. Set a strong
+`SECRET_KEY` and either `ADMIN_PASSWORD_HASH` or a non-default
+`ADMIN_PASSWORD`.
 
 ## Environment Variables
 
@@ -100,13 +100,12 @@ Useful production settings:
 | Variable | Purpose |
 |---|---|
 | `APP_ENV=production` | Enables production safety checks |
-| `SECRET_KEY` | Required strong Flask session secret; generated automatically by `render.yaml` on Render |
+| `SECRET_KEY` | Required strong Flask session secret |
 | `ADMIN_USERNAME` | Admin login username |
 | `ADMIN_PASSWORD_HASH` | Preferred hashed admin password |
 | `ADMIN_PASSWORD` | Plain password fallback for local/demo use |
 | `DETECTION_MODEL_PATH` | Optional custom YOLO weights path |
 | `DETECTION_PRELOAD_MODEL=1` | Warm the YOLO model when Flask starts |
-| `ALLOW_EPHEMERAL_UPLOADS` | Allows demo deploys without durable upload storage |
 | `PRELOAD_LOCALITY_SEARCH=0` | Disable startup preloading for locality search debugging |
 | `RATE_LIMIT_ENABLED` | Keeps abuse protection enabled by default |
 
@@ -115,20 +114,6 @@ Useful production settings:
 Run all tests:
 
     python -m pytest tests
-
-## Production Deployment
-
-Production should run through a WSGI server, not `python run.py`.
-
-Recommended startup command:
-
-    gunicorn "wsgi:application" --config gunicorn.conf.py
-
-Production deployment, required environment variables, Render setup,
-PostgreSQL, persistent uploads, backups, monitoring, and DNS instructions are
-documented in:
-
-    docs/deployment.md
 
 ## Database
 

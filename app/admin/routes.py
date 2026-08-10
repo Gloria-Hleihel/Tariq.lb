@@ -2,16 +2,7 @@ from datetime import date
 from functools import wraps
 from hmac import compare_digest
 
-from flask import (
-    Blueprint,
-    abort,
-    current_app,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
+from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash
@@ -38,20 +29,15 @@ def _valid_admin_credentials(username: str | None, password: str | None) -> bool
     """Validate admin credentials without leaking timing differences."""
     submitted_username = username or ""
     submitted_password = password or ""
-    expected_username = current_app.config.get("ADMIN_USERNAME", "admin")
-    username_ok = compare_digest(submitted_username, expected_username)
+    username_ok = compare_digest(submitted_username, config.ADMIN_USERNAME)
 
-    password_hash = current_app.config.get("ADMIN_PASSWORD_HASH")
-    if password_hash:
+    if config.ADMIN_PASSWORD_HASH:
         password_ok = check_password_hash(
-            password_hash,
+            config.ADMIN_PASSWORD_HASH,
             submitted_password,
         )
     else:
-        password_ok = compare_digest(
-            submitted_password,
-            current_app.config.get("ADMIN_PASSWORD", "changeme"),
-        )
+        password_ok = compare_digest(submitted_password, config.ADMIN_PASSWORD)
 
     return username_ok and password_ok
 
@@ -161,16 +147,8 @@ def login():
             session.clear()
             session.permanent = True
             session["admin_logged_in"] = True
-            current_app.logger.info(
-                "Admin login succeeded for username '%s'.",
-                username,
-            )
             return redirect(url_for("admin.dashboard"))
 
-        current_app.logger.warning(
-            "Admin login failed for username '%s'.",
-            username,
-        )
         error = "Invalid credentials"
 
     return render_template("admin/login.html", error=error)
@@ -309,7 +287,6 @@ def delete_report(report_id):
     for image_path in image_paths:
         delete_image(image_path)
 
-    current_app.logger.info("Admin deleted report %s.", report_id)
     return redirect(url_for("admin.dashboard"))
 
 

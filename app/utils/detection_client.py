@@ -182,27 +182,6 @@ def _normalize_result(
     }
 
 
-def _run_internal_detection(image_path: str) -> Dict[str, Any]:
-    """Run the detector in-process to avoid production self-HTTP calls."""
-    try:
-        from app.detection.detector import detect_damage
-
-        return _normalize_result(detect_damage(image_path))
-
-    except Exception as exc:
-        current_app.logger.exception(
-            "Internal detection failed for %s.",
-            image_path,
-        )
-        return _pending(
-            f"Internal detection failed: {exc}",
-            (
-                "Your report was saved, but detection "
-                "could not complete. Please retry detection later."
-            ),
-        )
-
-
 def trigger_detection(
     report,
     image_path: str,
@@ -225,22 +204,6 @@ def trigger_detection(
         )
     )
 
-    if str(api_url or "").strip().lower() in {
-        "disabled",
-        "off",
-        "none",
-        "manual",
-        "manual-review",
-    }:
-        return _pending(
-            "AI detection is disabled for this hosting environment.",
-            (
-                "Your report was saved. AI detection is disabled on the "
-                "free demo server because the model needs more memory. "
-                "An administrator can review the report manually."
-            ),
-        )
-
     if not os.path.isfile(image_path):
         return _pending(
             "Saved upload is missing from disk.",
@@ -249,9 +212,6 @@ def trigger_detection(
                 "could not be sent for detection."
             ),
         )
-
-    if str(api_url or "").strip().lower() in {"", "internal", "in-process"}:
-        return _run_internal_detection(image_path)
 
     try:
         response = requests.post(

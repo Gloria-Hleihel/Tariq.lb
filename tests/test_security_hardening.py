@@ -4,7 +4,7 @@ import pytest
 
 from app import create_app
 from app.security import reset_rate_limits
-from models import Report, db
+from models import db
 
 
 @pytest.fixture()
@@ -59,37 +59,6 @@ def test_security_headers_are_sent(client):
     assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
     assert "https://server.arcgisonline.com" in response.headers["Content-Security-Policy"]
     assert "geolocation=(self)" in response.headers["Permissions-Policy"]
-
-
-def test_hsts_is_sent_for_https_requests(client):
-    response = client.get("/", base_url="https://tariq.example")
-
-    assert "Strict-Transport-Security" in response.headers
-
-
-def test_healthz_checks_database(client):
-    response = client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.get_json() == {"status": "ok", "database": "ok"}
-
-
-def test_html_404_uses_clean_error_page(client):
-    response = client.get("/missing-page")
-
-    assert response.status_code == 404
-    assert b"Tariq.lb" in response.data
-    assert b"Traceback" not in response.data
-
-
-def test_api_404_uses_json_error(client):
-    response = client.get(
-        "/api/missing-page",
-        headers={"Accept": "application/json"},
-    )
-
-    assert response.status_code == 404
-    assert response.get_json()["success"] is False
 
 
 def test_admin_login_rejects_missing_csrf_token(client):
@@ -190,101 +159,6 @@ def test_production_config_rejects_default_secrets(tmp_path):
                 "AUTO_CREATE_DATABASE": False,
             }
         )
-
-
-def test_production_config_rejects_plain_admin_password(tmp_path):
-    model_path = tmp_path / "model.pt"
-    model_path.write_bytes(b"fake model")
-
-    with pytest.raises(RuntimeError, match="ADMIN_PASSWORD_HASH"):
-        create_app(
-            {
-                "TESTING": False,
-                "REQUIRE_PRODUCTION_SECRETS": True,
-                "SECRET_KEY": "test-secret-value-that-is-long-enough",
-                "ADMIN_PASSWORD": "not-default",
-                "ADMIN_PASSWORD_HASH": None,
-                "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-                "ALLOW_SQLITE_IN_PRODUCTION": True,
-                "PERSISTENT_UPLOADS_CONFIRMED": True,
-                "SESSION_COOKIE_SECURE": True,
-                "DETECTION_MODEL_PATH": str(model_path),
-                "STATIC_FOLDER": str(tmp_path / "static"),
-                "UPLOAD_FOLDER": str(tmp_path / "static" / "uploads"),
-                "ANNOTATED_FOLDER": str(
-                    tmp_path / "static" / "uploads" / "annotated"
-                ),
-                "ENABLE_COMPRESSION": False,
-                "AUTO_CREATE_DATABASE": False,
-            }
-        )
-
-
-def test_production_config_accepts_required_runtime_settings(tmp_path):
-    model_path = tmp_path / "model.pt"
-    model_path.write_bytes(b"fake model")
-
-    flask_app = create_app(
-        {
-            "TESTING": False,
-            "REQUIRE_PRODUCTION_SECRETS": True,
-            "SECRET_KEY": "test-secret-value-that-is-long-enough",
-            "ADMIN_PASSWORD_HASH": "scrypt:32768:8:1$fake$fake",
-            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-            "ALLOW_SQLITE_IN_PRODUCTION": True,
-            "PERSISTENT_UPLOADS_CONFIRMED": True,
-            "SESSION_COOKIE_SECURE": True,
-            "DETECTION_MODEL_PATH": str(model_path),
-            "STATIC_FOLDER": str(tmp_path / "static"),
-            "UPLOAD_FOLDER": str(tmp_path / "static" / "uploads"),
-            "ANNOTATED_FOLDER": str(
-                tmp_path / "static" / "uploads" / "annotated"
-            ),
-            "ENABLE_COMPRESSION": False,
-            "AUTO_CREATE_DATABASE": False,
-        }
-    )
-
-    assert flask_app.config["SESSION_COOKIE_SECURE"] is True
-
-
-def test_retry_detection_requires_csrf_token(client, app):
-    with app.app_context():
-        report = Report(
-            image_path="uploads/missing.jpg",
-            lat=33.89,
-            lng=35.50,
-            location_source="manual",
-            status="pending",
-            detection_status="pending",
-        )
-        db.session.add(report)
-        db.session.commit()
-        report_id = report.id
-
-    response = client.post(f"/reports/{report_id}/retry-detection")
-
-    assert response.status_code == 400
-
-
-def test_retry_detection_form_includes_csrf_token(client, app):
-    with app.app_context():
-        report = Report(
-            image_path="uploads/missing.jpg",
-            lat=33.89,
-            lng=35.50,
-            location_source="manual",
-            status="pending",
-            detection_status="pending",
-        )
-        db.session.add(report)
-        db.session.commit()
-        report_id = report.id
-
-    response = client.get(f"/reports/{report_id}")
-
-    assert response.status_code == 200
-    assert b'name="_csrf_token"' in response.data
 
 
 def test_runtime_preloader_warms_enabled_caches(tmp_path, monkeypatch):

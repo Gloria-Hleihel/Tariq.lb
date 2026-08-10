@@ -44,7 +44,6 @@ def app(tmp_path):
             "STATIC_FOLDER": str(static_folder),
             "UPLOAD_FOLDER": str(upload_folder),
             "ANNOTATED_FOLDER": str(annotated_folder),
-            "DETECTION_API_URL": "http://detector.test/api/detect",
         }
     )
 
@@ -1121,40 +1120,6 @@ def test_detection_client_does_not_request_api_database_save(
 
     assert result["status"] == "completed"
     assert captured["json"] == {"image_path": str(image_path)}
-
-
-def test_detection_client_internal_mode_runs_detector(
-    app,
-    tmp_path,
-    monkeypatch,
-):
-    image_path = tmp_path / "road.png"
-    image_path.write_bytes(image_bytes().getvalue())
-    app.config["DETECTION_API_URL"] = "internal"
-
-    class ExampleReport:
-        id = 42
-
-    def fake_detect(path):
-        assert path == str(image_path)
-        return {
-            "damage_type": "Potholes",
-            "confidence": 0.84,
-            "severity_score": 82,
-            "severity_label": "Critical",
-            "annotated_image_path": "static/uploads/annotated/road.jpg",
-        }
-
-    monkeypatch.setattr(
-        "app.detection.detector.detect_damage",
-        fake_detect,
-    )
-
-    with app.app_context():
-        result = trigger_detection(ExampleReport(), str(image_path))
-
-    assert result["status"] == "completed"
-    assert result["damage_type"] == "Potholes"
 
 
 def test_detection_client_timeout_returns_pending(

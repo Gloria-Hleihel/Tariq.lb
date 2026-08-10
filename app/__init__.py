@@ -1,19 +1,13 @@
 import logging
 import os
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
-from flask_migrate import Migrate
+from flask import Flask, flash, jsonify, redirect, request, url_for
 from sqlalchemy import inspect, text
-from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import RequestEntityTooLarge
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
 from app.security import init_security
 from models import db
-
-
-migrate = Migrate()
 
 
 def create_app(test_config=None):
@@ -40,16 +34,8 @@ def create_app(test_config=None):
     app.config.update(test_config)
     _validate_production_config(app)
 
-    _configure_logging(app)
-
-    if app.config.get("TRUST_PROXY_HEADERS"):
-        app.wsgi_app = ProxyFix(
-            app.wsgi_app,
-            x_for=int(app.config.get("PROXYFIX_X_FOR", 1)),
-            x_proto=int(app.config.get("PROXYFIX_X_PROTO", 1)),
-            x_host=int(app.config.get("PROXYFIX_X_HOST", 1)),
-            x_port=int(app.config.get("PROXYFIX_X_PORT", 1)),
-        )
+    if not app.debug and not app.testing:
+        logging.basicConfig(level=logging.INFO)
 
     init_security(app)
 
@@ -64,7 +50,6 @@ def create_app(test_config=None):
     )
 
     db.init_app(app)
-    migrate.init_app(app, db)
 
     from app.admin.routes import admin_bp
     from app.detection.routes import detection_bp
@@ -99,109 +84,12 @@ def create_app(test_config=None):
         flash(message, "error")
         return redirect(url_for("reports.upload"), code=303)
 
-    @app.get("/healthz")
-    def healthz():
-        """Lightweight production health check; never runs YOLO inference."""
-        try:
-            db.session.execute(text("SELECT 1"))
-        except Exception:
-            app.logger.exception("Health check database probe failed.")
-            return jsonify({"status": "error", "database": "unavailable"}), 503
-
-        return jsonify({"status": "ok", "database": "ok"}), 200
-
-    @app.errorhandler(400)
-    @app.errorhandler(403)
-    @app.errorhandler(404)
-    @app.errorhandler(405)
-    @app.errorhandler(429)
-    def handle_http_error(error):
-        return _render_error_response(error)
-
-    @app.errorhandler(500)
-    def handle_internal_server_error(error):
-        app.logger.error("Unhandled server error: %s", error)
-        return _render_error_response(error, generic_message=True)
-
-    @app.errorhandler(Exception)
-    def handle_unexpected_error(error):
-        if isinstance(error, HTTPException):
-            return _render_error_response(error)
-
-        app.logger.exception("Unhandled application exception.")
-        return _render_error_response(
-            HTTPException(description="Internal server error"),
-            status_code=500,
-            generic_message=True,
-        )
-
     if app.config.get("AUTO_CREATE_DATABASE", True):
         with app.app_context():
             db.create_all()
             _upgrade_sqlite_schema()
 
     return app
-
-
-def _configure_logging(app: Flask) -> None:
-    """Configure clear production logs without exposing secrets."""
-    level_name = str(app.config.get("LOG_LEVEL", "INFO")).upper()
-    level = getattr(logging, level_name, logging.INFO)
-
-    if not logging.getLogger().handlers:
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-        )
-
-    app.logger.setLevel(level)
-    app.logger.info("Starting Tariq.lb in %s mode.", app.config.get("APP_ENV"))
-
-
-def _wants_json_error() -> bool:
-    best_match = request.accept_mimetypes.best_match(
-        ["application/json", "text/html"]
-    )
-    return request.path.startswith("/api/") or best_match == "application/json"
-
-
-def _render_error_response(
-    error,
-    status_code: int | None = None,
-    generic_message: bool = False,
-):
-    """Return clean HTML or JSON errors without stack traces."""
-    code = status_code or getattr(error, "code", 500) or 500
-    name = getattr(error, "name", "Server Error")
-
-    if generic_message or code >= 500:
-        message = "Something went wrong. Please try again later."
-    else:
-        message = getattr(error, "description", None) or name
-
-    if _wants_json_error():
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": {
-                        "code": code,
-                        "message": message,
-                    },
-                }
-            ),
-            code,
-        )
-
-    return (
-        render_template(
-            "error.html",
-            status_code=code,
-            title=name,
-            message=message,
-        ),
-        code,
-    )
 
 
 def _preload_runtime_assets(app: Flask) -> None:
@@ -246,38 +134,11 @@ def _validate_production_config(app: Flask) -> None:
         problems.append("set SECRET_KEY to a strong random value")
 
     password_hash = app.config.get("ADMIN_PASSWORD_HASH")
-    if not password_hash:
-        problems.append("set ADMIN_PASSWORD_HASH; plain passwords are not allowed")
-
-    database_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
-    if (
-        database_uri.startswith("sqlite:///")
-        and not app.config.get("ALLOW_SQLITE_IN_PRODUCTION", False)
-    ):
-        problems.append("set DATABASE_URL for PostgreSQL production storage")
-
-    if (
-        not app.config.get("PERSISTENT_UPLOADS_CONFIRMED", False)
-        and not app.config.get("ALLOW_EPHEMERAL_UPLOADS", False)
-    ):
+    admin_password = app.config.get("ADMIN_PASSWORD")
+    if not password_hash and admin_password == "changeme":
         problems.append(
-            "confirm persistent upload storage or explicitly allow ephemeral demo uploads"
+            "set ADMIN_PASSWORD_HASH or change ADMIN_PASSWORD"
         )
-
-    if not app.config.get("SESSION_COOKIE_SECURE", False):
-        problems.append("enable SESSION_COOKIE_SECURE for HTTPS")
-
-    model_path = app.config.get("DETECTION_MODEL_PATH")
-    if model_path:
-        resolved_model_path = (
-            model_path
-            if os.path.isabs(model_path)
-            else os.path.join(config.BASE_DIR, model_path)
-        )
-        if not os.path.isfile(resolved_model_path):
-            problems.append(
-                f"ensure the YOLO model exists at {resolved_model_path}"
-            )
 
     if problems:
         raise RuntimeError(
