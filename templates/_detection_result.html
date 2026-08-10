@@ -57,10 +57,7 @@
 
         <img
           class="report-image annotated-image"
-          src="{{ url_for(
-            'static',
-            filename=detection.annotated_image_path.replace('static/', '')
-          ) }}"
+          src="{{ uploaded_media_url(detection.annotated_image_path) }}"
           alt="Annotated road-damage detection result"
         >
       </div>
@@ -91,6 +88,11 @@
         report_id=report.id
       ) }}"
     >
+      <input
+        type="hidden"
+        name="_csrf_token"
+        value="{{ csrf_token() }}"
+      >
       <button
         class="retry-button"
         type="submit"

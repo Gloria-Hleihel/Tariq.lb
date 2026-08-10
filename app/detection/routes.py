@@ -1,3 +1,5 @@
+from hmac import compare_digest
+
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -21,6 +23,24 @@ from models import Detection, Report, db
 
 
 detection_bp = Blueprint("detection", __name__)
+
+
+def authorize_detection_api():
+    """Protect detection APIs in production when token auth is enabled."""
+    if not current_app.config.get("DETECTION_API_REQUIRE_TOKEN", False):
+        return None
+
+    expected = str(current_app.config.get("DETECTION_API_TOKEN") or "")
+    submitted = str(request.headers.get("X-Detection-Token") or "")
+
+    if expected and compare_digest(expected, submitted):
+        return None
+
+    return error_response(
+        "Detection API access is not authorized.",
+        403,
+        "DETECTION_API_FORBIDDEN",
+    )
 
 
 def error_response(
@@ -125,6 +145,10 @@ def detect_api():
     report_id is optional. When included, the result is saved to the
     database and linked to that report.
     """
+    authorization_error = authorize_detection_api()
+    if authorization_error is not None:
+        return authorization_error
+
     image_path, report_id, validation_error = (
         parse_detection_request()
     )
@@ -308,6 +332,10 @@ def create_detect_job_api():
         "report_id": 1
     }
     """
+    authorization_error = authorize_detection_api()
+    if authorization_error is not None:
+        return authorization_error
+
     image_path, report_id, validation_error = (
         parse_detection_request()
     )
@@ -345,6 +373,10 @@ def get_detect_job_api(job_id: str):
         completed
         failed
     """
+    authorization_error = authorize_detection_api()
+    if authorization_error is not None:
+        return authorization_error
+
     job = get_detection_job(job_id)
 
     if job is None:

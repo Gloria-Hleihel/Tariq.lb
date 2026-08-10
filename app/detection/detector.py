@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import cv2
+from flask import current_app
 
 # PyTorch 2.6+ defaults torch.load() to weights_only=True. Ultralytics
 # checkpoints are trusted app assets here, loaded only from MODEL_PATH below.
@@ -20,11 +21,8 @@ MODEL_PATH = (
     if CONFIGURED_MODEL_PATH.is_absolute()
     else PROJECT_ROOT / CONFIGURED_MODEL_PATH
 ).resolve()
-ANNOTATED_DIR = PROJECT_ROOT / "static" / "uploads" / "annotated"
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-
-ANNOTATED_DIR.mkdir(parents=True, exist_ok=True)
 
 _model = None
 
@@ -61,9 +59,20 @@ class InferenceError(DetectionError):
     """Raised when YOLO inference fails."""
 
 
+def _setting(name: str, default):
+    """Read Flask config when a request/app context is active."""
+    try:
+        return current_app.config.get(name, default)
+    except RuntimeError:
+        return default
+
+
 def _allowed_detection_roots() -> tuple[Path, ...]:
     roots = []
-    for raw_root in getattr(config, "DETECTION_ALLOWED_ROOTS", []):
+    for raw_root in _setting(
+        "DETECTION_ALLOWED_ROOTS",
+        getattr(config, "DETECTION_ALLOWED_ROOTS", []),
+    ):
         root = Path(raw_root)
         if not root.is_absolute():
             root = PROJECT_ROOT / root
@@ -79,6 +88,19 @@ def _is_under_allowed_root(path: Path) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _annotated_dir() -> Path:
+    raw_folder = _setting(
+        "ANNOTATED_FOLDER",
+        str(PROJECT_ROOT / "static" / "uploads" / "annotated"),
+    )
+    folder = Path(raw_folder)
+    if not folder.is_absolute():
+        folder = PROJECT_ROOT / folder
+    folder = folder.resolve()
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
 
 
 def get_model():
@@ -238,8 +260,9 @@ def save_annotated_result(
     image_path: Path,
 ) -> str:
     """Save the first annotated YOLO result."""
+    annotated_dir = _annotated_dir()
     output_path = (
-        ANNOTATED_DIR
+        annotated_dir
         / f"{image_path.stem}_annotated.jpg"
     )
 
@@ -258,10 +281,24 @@ def save_annotated_result(
 
         break
 
-    try:
-        relative_path = output_path.relative_to(
-            PROJECT_ROOT
+    upload_folder = Path(
+        _setting(
+            "UPLOAD_FOLDER",
+            str(PROJECT_ROOT / "static" / "uploads"),
         )
+    )
+    if not upload_folder.is_absolute():
+        upload_folder = PROJECT_ROOT / upload_folder
+    upload_folder = upload_folder.resolve()
+
+    try:
+        relative_upload_path = output_path.relative_to(upload_folder)
+        return f"uploads/{relative_upload_path}".replace("\\", "/")
+    except ValueError:
+        pass
+
+    try:
+        relative_path = output_path.relative_to(PROJECT_ROOT)
         return str(relative_path).replace("\\", "/")
     except ValueError:
         return str(output_path)

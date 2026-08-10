@@ -998,10 +998,7 @@
             <div class="image-frame">
               <img
                 class="report-image"
-                src="{{ url_for(
-                  'static',
-                  filename=report.image_path.replace('static/', '')
-                ) }}"
+                src="{{ uploaded_media_url(report.image_path) }}"
                 alt="Uploaded road image"
                 loading="lazy"
                 decoding="async"

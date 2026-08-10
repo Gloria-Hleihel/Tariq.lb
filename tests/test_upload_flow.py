@@ -105,6 +105,26 @@ def test_upload_page_has_shared_nav_modals(client):
     assert b'aria-current="step"' in response.data
 
 
+def test_uploaded_media_route_serves_saved_upload(app, client):
+    upload_path = app.config["UPLOAD_FOLDER"]
+    os.makedirs(upload_path, exist_ok=True)
+    image_path = os.path.join(upload_path, "road.png")
+
+    with open(image_path, "wb") as file:
+        file.write(image_bytes().getvalue())
+
+    response = client.get("/uploads/road.png")
+
+    assert response.status_code == 200
+    assert response.mimetype == "image/png"
+
+
+def test_uploaded_media_route_rejects_path_traversal(client):
+    response = client.get("/uploads/../secret.png")
+
+    assert response.status_code == 404
+
+
 def test_valid_exif_upload_creates_report_and_redirects(
     app,
     client,
@@ -1085,6 +1105,7 @@ def test_detection_client_does_not_request_api_database_save(
     tmp_path,
     monkeypatch,
 ):
+    app.config["DETECTION_API_URL"] = "http://detector.example/api/detect"
     image_path = tmp_path / "road.png"
     image_path.write_bytes(image_bytes().getvalue())
     captured = {}
@@ -1122,11 +1143,42 @@ def test_detection_client_does_not_request_api_database_save(
     assert captured["json"] == {"image_path": str(image_path)}
 
 
+def test_detection_client_can_run_internal_detector(
+    app,
+    tmp_path,
+    monkeypatch,
+):
+    app.config["DETECTION_API_URL"] = "internal"
+    image_path = tmp_path / "road.png"
+    image_path.write_bytes(image_bytes().getvalue())
+
+    def fake_detect_damage(_image_path):
+        return {
+            "damage_type": "Potholes",
+            "confidence": 0.84,
+            "severity_score": 82,
+            "severity_label": "Critical",
+            "annotated_image_path": "static/uploads/annotated/road.jpg",
+        }
+
+    monkeypatch.setattr(
+        "app.detection.detector.detect_damage",
+        fake_detect_damage,
+    )
+
+    with app.app_context():
+        result = trigger_detection(object(), str(image_path))
+
+    assert result["status"] == "completed"
+    assert result["damage_type"] == "Potholes"
+
+
 def test_detection_client_timeout_returns_pending(
     app,
     tmp_path,
     monkeypatch,
 ):
+    app.config["DETECTION_API_URL"] = "http://detector.example/api/detect"
     image_path = tmp_path / "road.png"
     image_path.write_bytes(image_bytes().getvalue())
 
@@ -1153,6 +1205,7 @@ def test_detection_client_http_error_returns_pending(
     tmp_path,
     monkeypatch,
 ):
+    app.config["DETECTION_API_URL"] = "http://detector.example/api/detect"
     image_path = tmp_path / "road.png"
     image_path.write_bytes(image_bytes().getvalue())
 

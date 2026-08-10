@@ -2,7 +2,16 @@ from datetime import date
 from functools import wraps
 from hmac import compare_digest
 
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash
@@ -29,15 +38,20 @@ def _valid_admin_credentials(username: str | None, password: str | None) -> bool
     """Validate admin credentials without leaking timing differences."""
     submitted_username = username or ""
     submitted_password = password or ""
-    username_ok = compare_digest(submitted_username, config.ADMIN_USERNAME)
+    expected_username = str(current_app.config.get("ADMIN_USERNAME") or "")
+    username_ok = compare_digest(submitted_username, expected_username)
 
-    if config.ADMIN_PASSWORD_HASH:
+    password_hash = current_app.config.get("ADMIN_PASSWORD_HASH")
+    if password_hash:
         password_ok = check_password_hash(
-            config.ADMIN_PASSWORD_HASH,
+            password_hash,
             submitted_password,
         )
     else:
-        password_ok = compare_digest(submitted_password, config.ADMIN_PASSWORD)
+        password_ok = compare_digest(
+            submitted_password,
+            str(current_app.config.get("ADMIN_PASSWORD") or ""),
+        )
 
     return username_ok and password_ok
 
@@ -55,6 +69,12 @@ def _asset_url(path):
     normalized = path.replace("\\", "/").lstrip("/")
     if normalized.startswith("static/"):
         normalized = normalized[len("static/"):]
+
+    if normalized.startswith("uploads/"):
+        return url_for(
+            "reports.uploaded_media",
+            filename=normalized[len("uploads/"):],
+        )
 
     return url_for("static", filename=normalized)
 

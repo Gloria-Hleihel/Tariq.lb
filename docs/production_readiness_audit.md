@@ -1,6 +1,35 @@
 # Tariq.lb Production Readiness Audit
 
-Prepared as a safe staging patch. The patch does not redesign the UI or remove existing functionality.
+Prepared as a production deployment pass. The patch does not redesign the UI,
+remove features, replace the model, or change the report/admin/map workflows.
+
+## Deployment Readiness Verdict
+
+Ready after deployment blockers are fixed.
+
+The codebase now has production configuration, WSGI/Gunicorn startup, health
+checks, migrations, stricter production secret validation, Postgres support, and
+persistent upload configuration. The remaining blocker is operational: the host
+must provide enough memory for YOLOv8/PyTorch and persistent storage for uploads.
+
+## Current Project Audit
+
+- Flask entry point: `run.py` for local development, `wsgi.py` for production.
+- App factory: `app.create_app()`.
+- Blueprints: reports, detection, and admin are separated.
+- Local database: SQLite `tariq.db`.
+- Production database: `DATABASE_URL` now supports PostgreSQL.
+- Upload paths: local `static/uploads`; production should use persistent disk.
+- Annotated images: local `static/uploads/annotated`; production should use the
+  same persistent disk.
+- Model path: `models/road_damage_v3.pt`.
+- Existing env vars: app mode, secrets, admin credentials, upload limits,
+  detection settings, rate limits, proxy trust, static cache, and map settings.
+- Hardcoded development credentials remain only as local defaults and are
+  rejected in production mode.
+- Static files and templates are local Flask assets.
+- Windows/local assumptions reduced: production startup uses Linux Gunicorn.
+- `python run.py` remains local-only and refuses production debug mode.
 
 ## Executive Summary
 

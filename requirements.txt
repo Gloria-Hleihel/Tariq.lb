@@ -24,6 +24,7 @@ SQLAlchemy==2.0.31
 Flask-Migrate==4.0.7
 Alembic==1.13.2
 greenlet==3.5.3
+psycopg2-binary==2.9.10
 
 # -------------------------
 # Authentication and Security

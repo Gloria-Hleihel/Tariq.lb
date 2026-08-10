@@ -119,7 +119,7 @@
               <p>Select the road location on the map and submit again.</p>
             </div>
             <img
-              src="{{ url_for('static', filename=saved_image_path.replace('static/', '')) }}"
+              src="{{ uploaded_media_url(saved_image_path) }}"
               alt="Previously uploaded road image"
               loading="lazy"
               decoding="async"

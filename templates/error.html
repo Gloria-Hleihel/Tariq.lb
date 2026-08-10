@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{{ code }} - Tariq.lb{% endblock %}
+
+{% block content %}
+  <section class="error-page" aria-labelledby="error-title">
+    <div class="error-card">
+      <p class="eyebrow">Tariq.lb</p>
+      <h1 id="error-title">{{ code }} - {{ title }}</h1>
+      <p>{{ message }}</p>
+      <div class="error-actions">
+        <a class="primary-cta" href="{{ url_for('reports.index') }}">Go Home</a>
+        <a class="secondary-cta" href="{{ url_for('reports.map_page') }}">View Live Map</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}

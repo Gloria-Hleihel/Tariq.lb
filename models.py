@@ -76,7 +76,7 @@ class Detection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     report_id = db.Column(
         db.Integer,
-        db.ForeignKey("reports.id"),
+        db.ForeignKey("reports.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

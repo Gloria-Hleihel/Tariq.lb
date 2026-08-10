@@ -182,6 +182,28 @@ def _normalize_result(
     }
 
 
+def _uses_internal_detection(api_url: str) -> bool:
+    """Return True when detection should run inside this Flask process."""
+    return api_url.strip().lower() in {"", "internal", "in-process", "local"}
+
+
+def _run_internal_detection(image_path: str) -> Dict[str, Any]:
+    """Run the detector directly instead of making an HTTP self-request."""
+    try:
+        from app.detection.detector import DetectionError, detect_damage
+
+        return _normalize_result(detect_damage(image_path))
+
+    except DetectionError as exc:
+        return _pending(
+            f"Detection failed: {exc}",
+            (
+                "Your report was saved, but detection "
+                "did not complete. Please retry detection later."
+            ),
+        )
+
+
 def trigger_detection(
     report,
     image_path: str,
@@ -213,12 +235,27 @@ def trigger_detection(
             ),
         )
 
+    if _uses_internal_detection(str(api_url)):
+        return _run_internal_detection(image_path)
+
+    headers = {}
+    token = str(
+        _setting(
+            "DETECTION_API_TOKEN",
+            config.DETECTION_API_TOKEN,
+        )
+        or ""
+    )
+    if token:
+        headers["X-Detection-Token"] = token
+
     try:
         response = requests.post(
             api_url,
             json={
                 "image_path": image_path,
             },
+            headers=headers,
             timeout=timeout,
         )
 

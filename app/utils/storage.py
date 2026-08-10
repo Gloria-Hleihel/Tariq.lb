@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from flask import current_app
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 import config
@@ -127,6 +127,31 @@ def _validate_saved_image(absolute_path: str) -> bool:
         return False
 
     return True
+
+
+def strip_image_metadata(absolute_path: str) -> None:
+    """Remove stored EXIF/metadata after GPS extraction has finished."""
+    with Image.open(absolute_path) as image:
+        image_format = image.format
+        sanitized = ImageOps.exif_transpose(image)
+
+        if image_format == "JPEG":
+            if sanitized.mode not in {"RGB", "L"}:
+                sanitized = sanitized.convert("RGB")
+            sanitized.save(
+                absolute_path,
+                format="JPEG",
+                quality=90,
+                optimize=True,
+            )
+            return
+
+        if image_format == "PNG":
+            sanitized.save(
+                absolute_path,
+                format="PNG",
+                optimize=True,
+            )
 
 
 def save_image(file) -> str:

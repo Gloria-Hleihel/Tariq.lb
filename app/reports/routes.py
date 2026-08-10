@@ -9,6 +9,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     url_for,
 )
 
@@ -36,6 +37,7 @@ from app.utils.storage import (
     delete_image,
     get_file_size,
     save_image,
+    strip_image_metadata,
 )
 from models import Detection, FeedbackMessage, Report, db
 
@@ -511,6 +513,15 @@ def _create_report_submission():
             saved_abs_path,
         )
 
+        try:
+            strip_image_metadata(saved_abs_path)
+        except OSError:
+            current_app.logger.warning(
+                "Could not strip metadata from %s",
+                saved_rel_path,
+                exc_info=True,
+            )
+
     except SubmissionError:
         raise
 
@@ -726,6 +737,26 @@ def submit_feedback():
         "success",
     )
     return redirect(redirect_target)
+
+
+@bp.route("/uploads/<path:filename>", methods=["GET"])
+def uploaded_media(filename):
+    """Serve uploaded road images from the configured upload folder."""
+    normalized = str(filename or "").replace("\\", "/").lstrip("/")
+    path_parts = normalized.split("/")
+
+    if (
+        not normalized
+        or any(part in {"", ".", ".."} for part in path_parts)
+        or not allowed_file(os.path.basename(normalized))
+    ):
+        abort(404)
+
+    return send_from_directory(
+        current_app.config["UPLOAD_FOLDER"],
+        normalized,
+        max_age=current_app.config.get("STATIC_CACHE_SECONDS", 86_400),
+    )
 
 
 @bp.route(
@@ -1062,6 +1093,7 @@ def api_report_detail(report_id):
     "/reports/<int:report_id>/retry-detection",
     methods=["POST"],
 )
+@require_csrf
 def retry_detection(report_id):
     """Retry a pending detection."""
     report = _get_report_or_404(report_id)

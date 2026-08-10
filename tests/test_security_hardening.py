@@ -61,6 +61,13 @@ def test_security_headers_are_sent(client):
     assert "geolocation=(self)" in response.headers["Permissions-Policy"]
 
 
+def test_healthz_returns_ok(client):
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok"}
+
+
 def test_admin_login_rejects_missing_csrf_token(client):
     response = client.post(
         "/admin/login",
@@ -159,6 +166,38 @@ def test_production_config_rejects_default_secrets(tmp_path):
                 "AUTO_CREATE_DATABASE": False,
             }
         )
+
+
+def test_detection_api_token_is_required_when_enabled(tmp_path):
+    flask_app = create_app(
+        {
+            "TESTING": False,
+            "SECRET_KEY": "test-secret",
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "STATIC_FOLDER": str(tmp_path / "static"),
+            "UPLOAD_FOLDER": str(tmp_path / "static" / "uploads"),
+            "ANNOTATED_FOLDER": str(
+                tmp_path / "static" / "uploads" / "annotated"
+            ),
+            "ENABLE_COMPRESSION": False,
+            "AUTO_CREATE_DATABASE": True,
+            "DETECTION_API_REQUIRE_TOKEN": True,
+            "DETECTION_API_TOKEN": "internal-token",
+        }
+    )
+
+    test_client = flask_app.test_client()
+    response = test_client.post(
+        "/api/detect",
+        json={"image_path": "test_images/road1.png"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["error"]["code"] == "DETECTION_API_FORBIDDEN"
+
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
 
 
 def test_runtime_preloader_warms_enabled_caches(tmp_path, monkeypatch):

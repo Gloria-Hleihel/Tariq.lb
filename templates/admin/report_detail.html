@@ -435,7 +435,7 @@
                 <div class="image-box">
                     <p>Annotated Image</p>
                     {% if detection and detection.annotated_image_path %}
-                        <img src="/{{ detection.annotated_image_path }}" alt="AI annotated road damage image for report {{ report.id }}" loading="lazy" decoding="async">
+                        <img src="{{ uploaded_media_url(detection.annotated_image_path) }}" alt="AI annotated road damage image for report {{ report.id }}" loading="lazy" decoding="async">
                     {% else %}
                         <div class="no-image">
                             <i class="fa-solid fa-image"></i>
